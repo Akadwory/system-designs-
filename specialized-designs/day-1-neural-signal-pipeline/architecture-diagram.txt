@@ -1,0 +1,6 @@
+[Diagram Description—Confirm if you want me to generate an image]
+- Box 1: "Ingestion (Kafka/UDP)" → Arrow → Box 2: "Preprocessing (C++/Jetson or Flink)"
+- Box 2 → Arrow → Box 3: "Inference (TensorRT/K8s)"
+- Box 3 → Arrow → Box 4: "Output (gRPC API)"
+- Dotted line from all boxes → Box 5: "Monitoring (Prometheus/Grafana)"
+- Lock icon on arrows: "TLS Encryption"
