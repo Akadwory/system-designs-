@@ -1,0 +1,2 @@
+# Specialized System Designs
+Advanced architectures rooted in bioengineering, embedded systems, and real-time ML. These designs reflect my experience in brain-machine interfaces, telematics, and autonomous systems—built for performance, security, and innovation. Expect solutions that could power the next Neuralink or defense breakthrough.
