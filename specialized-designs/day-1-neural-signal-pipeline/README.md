@@ -37,7 +37,8 @@ A scalable, secure, low-latency system to process neural signals (e.g., EEG, bra
    - **Details:** Tracks latency, drift, and uptime. Secure data flow (HIPAA/GDPR-ready)—my safety-critical focus.
 
 ## Diagram
-[See architecture-diagram.txt]  
+![Architecture Diagram](architecture-diagram.png)
+
 - Flow: Ingestion (Kafka/UDP) → Preprocessing (Edge/Cloud) → Inference (TensorRT/K8s) → Output (gRPC) → Monitoring.
 
 ## Trade-Offs
