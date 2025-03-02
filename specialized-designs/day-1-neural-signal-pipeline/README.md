@@ -18,15 +18,13 @@ A scalable, secure, low-latency system to process neural signals (e.g., EEG, bra
    - **Details:** Streams multi-sensor inputs (EEG, EMG) at 10k Hz. Partitioned by channel for parallel processing.
    - **Scale:** Handles 100+ channels via horizontal partitioning.
 
-2. **Preprocessing**  
-   - **Tech:** C++ on embedded edge nodes (e.g., NVIDIA Jetson), Flink for cloud fallback.
-   - **Details:** Real-time FFT, noise filtering, and normalization. Edge latency <5ms; cloud backup for overflow.
-   - **Why Embedded?** Minimizes latency and bandwidth—my telematics experience at play.
+2. **Preprocessing**
+   - **Tech:** C++ on embedded edge nodes (e.g., NVIDIA Jetson) for sub-5ms latency; Python with Flink for cloud scalability.  
+   - **Details:** Edge: Real-time FFT, bandpass filtering (0.5-50 Hz high-pass/low-pass) with 60 Hz notch, wavelet denoising (Daubechies D4), and ICA for artifacts (e.g., blinks, EMG)—all in C++ for <5ms. Cloud: Python refines with EDA—SNR (>10 dB), cross-channel coherence—for 1000-channel scale.
 
-3. **ML Inference**  
-   - **Tech:** TensorRT on GPUs (cloud) or Jetson (edge), Kubernetes for orchestration.
-   - **Details:** Lightweight CNN (e.g., 1M params) for intent classification. Load-balanced across replicas.
-   - **Trade-off:** 95% accuracy vs. <10ms inference—optimized via quantization.
+3. **ML Inference**
+   - **Tech:** TensorRT on GPUs (cloud) or Jetson (edge), Kubernetes for orchestration.  
+   - **Details:** 6-layer transformer (128 hidden size, 4 heads, 5M params) for intent classification, quantized via TensorRT (Python-driven) for <10ms inference at 96% accuracy—beats CNNs by 2-3%. Supports 15k predictions/sec.
 
 4. **Output Delivery**  
    - **Tech:** gRPC API with redundant endpoints.
