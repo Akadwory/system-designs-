@@ -1,28 +1,29 @@
 import torch
 import torch.nn as nn
 import horovod.torch as hvd
+import gpipe  # Assuming GPipe integration
 import logging
 from typing import Optional
 
-# Configure production logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Initialize Horovod for distributed training
+# Horovod init
 hvd.init()
 torch.cuda.set_device(hvd.local_rank())
 
-# Define transformer model
-class TransformerModel(nn.Module):
-    def __init__(self, d_model=1024, nhead=8, num_layers=12, dim_feedforward=2048, dropout=0.1):
+class SparseMoETransformer(nn.Module):
+    def __init__(self, d_model=1024, nhead=8, num_layers=12, experts=4, sparsity=0.5):
         super().__init__()
-        self.pos_encoder = torch.nn.Parameter(torch.randn(1, 512, d_model))  # Positional encoding
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=d_model, nhead=nhead, dim_feedforward=dim_feedforward, 
-            dropout=dropout, batch_first=True, activation='gelu'
-        )
-        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-        self.fc = nn.Linear(d_model, 10)  # 10-class output (e.g., anomaly types)
+        self.pos_encoder = nn.Parameter(torch.randn(1, 512, d_model))
+        self.layers = nn.ModuleList([
+            nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward=2048, dropout=0.1, batch_first=True, activation='gelu')
+            for _ in range(num_layers)
+        ])
+        self.moe = nn.ModuleList([nn.Linear(d_model, d_model) for _ in range(experts)])  # Expert layers
+        self.gate = nn.Linear(d_model, experts)  # Gating network
+        self.fc = nn.Linear(d_model, 10)
+        self.sparsity = sparsity
         self._init_weights()
 
     def _init_weights(self):
@@ -32,38 +33,43 @@ class TransformerModel(nn.Module):
 
     def forward(self, x):
         x = x + self.pos_encoder[:, :x.shape[1], :].to(x.device)
-        x = self.encoder(x)
+        for layer in self.layers:
+            x = layer(x)
+            # MoE: Top-k sparse activation
+            gate_scores = torch.softmax(self.gate(x), dim=-1)  # [batch, seq, experts]
+            topk_val, topk_idx = gate_scores.topk(2, dim=-1)  # Top-2 experts
+            expert_out = sum(self.moe[idx](x) * val.unsqueeze(-1) for val, idx in zip(topk_val, topk_idx))
+            x = x * (1 - self.sparsity) + expert_out * self.sparsity
         return self.fc(x[:, -1, :])
 
 # Training setup
-model = TransformerModel().cuda()
-optimizer = torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
-scaler = torch.cuda.amp.GradScaler()  # Mixed precision
+model = SparseMoETransformer().cuda()
+optimizer = torch.optim.LAMB(model.parameters(), lr=0.001)  # Adaptive optimizer
+scaler = torch.cuda.amp.GradScaler()
 hvd.broadcast_parameters(model.state_dict(), root_rank=0)
-hvd.broadcast_optimizer_state(optimizer, root_rank=0)
 optimizer = hvd.DistributedOptimizer(optimizer, named_parameters=model.named_parameters())
+model = gpipe.GPipe(model, balance=[4, 4, 4], devices=[f'cuda:{i}' for i in range(3)])  # Pipeline parallelism
 
 # Training loop
 for epoch in range(10):
-    model.train()
-    for i, batch in enumerate(dataloader):  # Assume dataloader yields preprocessed batches
+    for i, batch in enumerate(dataloader):
         try:
             optimizer.zero_grad()
-            with torch.cuda.amp.autocast():  # FP16 for speed
-                inputs = batch['input'].cuda(non_blocking=True)  # [batch, seq, 1024]
+            with torch.cuda.amp.autocast():
+                inputs = batch['input'].cuda(non_blocking=True)
                 targets = batch['target'].cuda(non_blocking=True)
                 outputs = model(inputs)
                 loss = nn.CrossEntropyLoss()(outputs, targets)
             scaler.scale(loss).backward()
             scaler.unscale_(optimizer)
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)  # Stability
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             scaler.step(optimizer)
             scaler.update()
             hvd.allreduce(loss, name='loss')
             if hvd.rank() == 0 and i % 100 == 0:
                 logger.info(f"Epoch {epoch}, Step {i}, Loss: {loss.item():.4f}")
-            if hvd.rank() == 0 and i % 1000 == 0:
-                torch.save(model.state_dict(), f"s3://checkpoints/model_epoch{epoch}_step{i}.pt")
+            if hvd.rank() == 0 and i % 500 == 0:
+                torch.save(model.state_dict(), f"s3://checkpoints/model_{epoch}_{i}.pt")
         except Exception as e:
-            logger.error(f"Training step failed: {e}")
+            logger.error(f"Training failed: {e}")
             raise
