@@ -49,6 +49,11 @@ A scalable, secure, low-latency system to process neural signals (e.g., EEG, bra
 - Embedded + cloud hybrid for flexibility—my bioengineering edge.
 - Secure, fault-tolerant design for mission-critical use—think prosthetics or defense.
 
+## Code
+- `code/preprocessing_cloud.py`: Cloud preprocessing—optimized bandpass, notch, wavelet, ICA with Flink integration.
+- `code/eda.py`: Production EDA—SNR and multi-channel coherence with logging.
+- `code/model_creation.py`: 6-layer transformer with positional encoding, exported for TensorRT.
+
 ## Pseudocode
 - `pseudocode/preprocessing.cpp`: Edge-based signal filtering.
 - `pseudocode/inference.py`: TensorRT inference loop.
