@@ -44,7 +44,7 @@ class SparseMoETransformer(nn.Module):
 
 # Training setup
 model = SparseMoETransformer().cuda()
-optimizer = torch.optim.LAMB(model.parameters(), lr=0.001)  # Adaptive optimizer
+optimizer = hvd.DistributedOptimizer(optimizer, named_parameters=model.named_parameters(), compression=hvd.Compression.topk(0.01))
 scaler = torch.cuda.amp.GradScaler()
 hvd.broadcast_parameters(model.state_dict(), root_rank=0)
 optimizer = hvd.DistributedOptimizer(optimizer, named_parameters=model.named_parameters())
