@@ -44,8 +44,7 @@ class SparseMoETransformer(nn.Module):
 
 # Training setup
 model = SparseMoETransformer().cuda()
-optimizer = hvd.DistributedOptimizer(optimizer, named_parameters=model.named_parameters(), compression=hvd.Compression.topk(0.01))  # TopK 1%scaler = torch.cuda.amp.GradScaler()
-hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+optimizer = hvd.DistributedOptimizer(optimizer, named_parameters=model.named_parameters(), compression=hvd.Compression.topk(0.01))  # TopK 1%hvd.broadcast_parameters(model.state_dict(), root_rank=0)
 optimizer = hvd.DistributedOptimizer(optimizer, named_parameters=model.named_parameters())
 model = gpipe.GPipe(model, balance=[4, 4, 4], devices=[f'cuda:{i}' for i in range(3)])  # Pipeline parallelism
 

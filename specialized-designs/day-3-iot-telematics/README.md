@@ -21,9 +21,9 @@ A real-time anomaly detection system for 10 million vehicles—edge preprocessin
    - **Tech:** AWS IoT Core, Kafka Streams (1000 partitions).  
    - **Details:** IoT Core ingests 1TB/h, routes to Kafka—1000 partitions, 10ms latency, 99.99% availability via 3x replication. Load-balanced across 100 brokers.
 
-3. **Cloud Inference**  
-   - **Tech:** PyTorch 2.0, 4-layer GRU (256 hidden), Kubernetes (1000 NVIDIA T4 GPUs).  
-   - **Details:** GRU processes time-series (10-step windows), predicts anomalies (>95% accuracy, 10k preds/s). Quantized to INT8 via TensorRT, sharded across 1000 nodes. Autoscales to 2000 nodes at peak.
+3. **Cloud Inference** 
+   - **Tech:** PyTorch 2.0, 4-layer sparse transformer (256 hidden, 4 heads, 50% sparsity), Kubernetes (1000 NVIDIA T4 GPUs).  
+   - **Details:** Sparse transformer predicts anomalies (>96% accuracy, 12k preds/s), INT8 via TensorRT, sharded across 1000 nodes. Kafka Streams retrains hourly on anomalies—99.999% uptime.
 
 4. **Fault Tolerance**  
    - **Tech:** Kafka Zookeeper, Kubernetes StatefulSets, S3 snapshots.  
