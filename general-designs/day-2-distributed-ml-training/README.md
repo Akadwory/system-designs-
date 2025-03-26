@@ -20,9 +20,9 @@ A cutting-edge, fault-tolerant system to train a 1-billion-parameter sparse Mixt
    - **Tech:** Python with Spark Streaming, 50 nodes.  
    - **Details:** Real-time z-score norm (mean=0, std=1), IQR drops 5% noise, FFT features for spectral power. EDA on 1% sample—Pearson corr (0.8 threshold), skewness (<1), drift logged via MLlib.
 
-3.3. Distributed Training  
-   - Tech: PyTorch 2.0, Horovod (data parallelism + gradient compression), GPipe, NCCL 2.12, Kubernetes (100 A100 GPUs).  
-   - Details: 12-layer sparse MoE transformer (1B params, 50% sparsity, 4 experts). Horovod uses TopK gradient compression (top 1% values), cuts sync time 50%, trains in <18h. GPipe splits layers, LAMB optimizer.
+3. Distributed Training  
+   - Tech: PyTorch 2.0, Horovod (data parallelism + TopK gradient compression), GPipe, NCCL 2.12, Kubernetes (100 NVIDIA A100 GPUs).  
+   - Details: Trains a 12-layer sparse MoE transformer (1024 hidden, 8 heads, 4 experts, 1B params, 50% sparsity) in <18h. Horovod’s TopK (1% sparsity) cuts gradient sync by 50%, GPipe splits layers, LAMB optimizer (lr=0.001), mixed precision (FP16).
 
    
    - **Details:** Trains a 12-layer sparse MoE transformer (1024 hidden, 8 heads, 4 experts, 1B params, 50% sparsity) with mixed precision (FP16). Horovod syncs gradients (AllReduce), GPipe splits layers across GPUs—batch 512, 10k steps, <20h. LAMB optimizer (lr=0.001, adaptive), gradient clipping (norm 1.0).
